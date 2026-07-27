@@ -1,4 +1,6 @@
 use std::env;
+use std::fs::File;
+use std::io::Write;
 use std::net::IpAddr;
 use std::process;
 use std::time::{Duration, Instant};
@@ -8,8 +10,8 @@ fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 4 {
-        eprintln!("Usage: cargo run <IP_ADDR> <START_PORT> <END_PORT> [THREADS]");
-        eprintln!("Example: cargo run 127.0.0.1 1 1000 50");
+        eprintln!("Usage: cargo run <IP_ADDR> <START_PORT> <END_PORT> [THREADS] [OUTPUT_FILE]");
+        eprintln!("Example: cargo run 127.0.0.1 1 1000 50 results.txt");
         process::exit(1);
     }
 
@@ -29,8 +31,14 @@ fn main() {
         20
     };
 
+    let output_file = if args.len() >= 6 {
+        Some(args[5].clone())
+    } else {
+        None
+    };
+
     println!("===========================================");
-    println!("Starting Concurrent Network Port Scanner");
+    println!("  Advanced Network Port & Service Scanner  ");
     println!("Target IP  : {}", target);
     println!("Port Range : {}-{}", start_port, end_port);
     println!("Threads    : {}", threads);
@@ -41,7 +49,7 @@ fn main() {
         start_port,
         end_port,
         threads,
-        timeout: Duration::from_millis(500),
+        timeout: Duration::from_millis(400),
     };
 
     let start_time = Instant::now();
@@ -50,13 +58,26 @@ fn main() {
 
     println!("\n--- Scan Results ---");
     if open_ports.is_empty() {
-        println!("No open ports found.");
+        println!("No open ports found in specified range.");
     } else {
-        for port in &open_ports {
-            println!("Port {:>5} : OPEN", port);
+        println!("{:<10} {:<10} {:<15}", "PORT", "STATE", "SERVICE");
+        println!("-------------------------------------------");
+        for res in &open_ports {
+            println!("{:<10} {:<10} {:<15}", res.port, "OPEN", res.service);
         }
     }
 
     println!("-------------------------------------------");
-    println!("Scan finished in {:.2?}", duration);
+    println!("Scan completed in {:.2?}", duration);
+
+    // ذخیره گزارش در فایل در صورت درخواست کاربر
+    if let Some(file_path) = output_file {
+        if let Ok(mut file) = File::create(&file_path) {
+            let _ = writeln!(file, "Scan Report for Target: {}", target);
+            for res in &open_ports {
+                let _ = writeln!(file, "Port {}: OPEN ({})", res.port, res.service);
+            }
+            println!("Report successfully saved to: {}", file_path);
+        }
+    }
 }
